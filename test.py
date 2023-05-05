@@ -9,18 +9,18 @@ d_angles = [angle]
 for i in range(1, d):
     angle += angle_incr
     d_angles.append(angle)
-#print(d_angles)
+print(d_angles)
 
 
 
 x11, x12, x13, x14 = symbols('x11, x12, x13, x14')
 init_printing(use_unicode=False, wrap_line=False)
-e = (x11 - x13)*(x11 - x13)
+e = (x11 + x12 + x13 + x14 - 1)*(x11 + x12 + x13 + x14 - 1)
 print(e.as_poly())
 
 hubo = {}
 
-A_const= 7.0
+A_const= 1.0
 ### Hard constraint
 hubo[('x11', 'x11')] = 1 * A_const
 hubo[('x11', 'x12')] = 2.0 * A_const
@@ -37,6 +37,7 @@ hubo[('x13', )] = -2.0 * A_const
 hubo[('x14', 'x14')] = 1 * A_const
 hubo[('x14', )] = -2.0 * A_const
 hubo[()] = 1.0 * A_const
+print(hubo)
 
 ### optimizing constraint
 #C1, C4 - X
@@ -88,4 +89,4 @@ hubo[('x12', 'x12')] -= 1
 hubo[('x12', 'x14')] -= -2.0
 hubo[('x14', 'x14')] -= 1
 
-print(hubo)
+#print(hubo)
