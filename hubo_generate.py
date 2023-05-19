@@ -1,5 +1,5 @@
 import sympy as sp
-from sympy.matrices import zeros, ones, eye
+from sympy.matrices import ones, eye
 from sympy import Point3D
 
 #########################
@@ -42,7 +42,7 @@ x = []  # global variables for hubo variables
 #################
 
 
-def generate_hard_constraint(include_a=False):
+def generate_hard_constraint(include_a=False, a_value=1.0):
     for i in range(n_bonds):
         x.append(sp.symbols(f'x{str(i)}(0:{n_angles})'))
     hard_constraint = 0
@@ -54,13 +54,15 @@ def generate_hard_constraint(include_a=False):
     if include_a:
         a_const = sp.Symbol('A_const')
         hard_constraint *= a_const
+    else:
+        hard_constraint *= a_value
     return hard_constraint
 
 
 def distance_squared(first_coords, second_coords):
     p1 = Point3D(first_coords[0], first_coords[1], first_coords[2])
     p2 = Point3D(second_coords[0], second_coords[1], second_coords[2])
-    return p1.distance(p2) ** 2
+    return p2.distance(p1) ** 2
 
 
 def generate_distance_hubo():
@@ -89,26 +91,22 @@ def generate_rotation_matrix(first_coords, second_coords, bond_no):
     for i in range(n_angles):
         c_theta += (sp.cos(thetas[i]) * x[bond_no][i])
         s_theta += (sp.sin(thetas[i]) * x[bond_no][i])
-    rotation_matrix = zeros(4, 4)
+    rotation_matrix = eye(4)
     rotation_matrix[0, 0] = (dx ** 2 + (dy ** 2 + dz ** 2) * c_theta) / l_sq
     rotation_matrix[0, 1] = (dx * dy * (1 - c_theta) - dz * l * s_theta) / l_sq
-    rotation_matrix[0, 2] = (dx * dz * (1 - c_theta) - dy * l * s_theta) / l_sq
+    rotation_matrix[0, 2] = (dx * dz * (1 - c_theta) + dy * l * s_theta) / l_sq
     rotation_matrix[0, 3] = ((x_dash * (dy ** 2 + dz ** 2) - dx * (y_dash * dy + z_dash * dz)) * (1 - c_theta) + (
             y_dash * dz - z_dash * dy) * l * s_theta) / l_sq
     rotation_matrix[1, 0] = (dx * dy * (1 - c_theta) + dz * l * s_theta) / l_sq
-    rotation_matrix[1, 1] = (dy * dy + (dx * dx + dz * dz) * c_theta) / l_sq
+    rotation_matrix[1, 1] = (dy ** 2 + (dx ** 2 + dz ** 2) * c_theta) / l_sq
     rotation_matrix[1, 2] = (dy * dz * (1 - c_theta) - dx * l * s_theta) / l_sq
-    rotation_matrix[1, 3] = ((y_dash * (dx * dx + dz * dz) - dy * (x_dash * dx + z_dash * dz)) * (1 - c_theta) + (
+    rotation_matrix[1, 3] = ((y_dash * (dx ** 2 + dz ** 2) - dy * (x_dash * dx + z_dash * dz)) * (1 - c_theta) + (
             z_dash * dx - x_dash * dz) * l * s_theta) / l_sq
     rotation_matrix[2, 0] = (dx * dz * (1 - c_theta) - dy * l * s_theta) / l_sq
     rotation_matrix[2, 1] = (dy * dz * (1 - c_theta) + dx * l * s_theta) / l_sq
-    rotation_matrix[2, 2] = (dz * dz + (dx * dx + dy * dy) * c_theta) / l_sq
-    rotation_matrix[2, 3] = ((z_dash * (dx * dx + dy * dy) - dz * (x_dash * dx + y_dash * dy)) * (1 - c_theta) + (
+    rotation_matrix[2, 2] = (dz ** 2 + (dx ** 2 + dy ** 2) * c_theta) / l_sq
+    rotation_matrix[2, 3] = ((z_dash * (dx ** 2 + dy ** 2) - dz * (x_dash * dx + y_dash * dy)) * (1 - c_theta) + (
             x_dash * dy - y_dash * dx) * l * s_theta) / l_sq
-    rotation_matrix[3, 0] = 0.0
-    rotation_matrix[3, 1] = 0.0
-    rotation_matrix[3, 2] = 0.0
-    rotation_matrix[3, 3] = 1.0
     return rotation_matrix
 
 
@@ -133,20 +131,12 @@ def rotate_all_coordinates():
 
 
 def main():
-    hubo_expr = generate_hard_constraint(include_a=True)
+    hubo_expr = generate_hard_constraint(include_a=False, a_value=20.0)
     print("\nHARD CONSTRAINT")
     print("---- ----------")
     sp.pprint(hubo_expr)
 
-    print("\n\nCO-ORDINATES BEFORE ROTATION")
-    print("------------ ------ --------")
-    sp.pprint(coords_dict)
-
     rotate_all_coordinates()
-
-    print("\n\nCO-ORDINATES AFTER ROTATION")
-    print("------------ ----- --------")
-    sp.pprint(coords_dict)
 
     print("\n\nOPTIMIZATION CONSTRAINT: ")
     print("------------ ----------")
@@ -155,12 +145,20 @@ def main():
 
     print('\nFINAL HUBO: ')
     print('----- ----')
-    hubo_expr += distance_hubo
+    hubo_expr -= distance_hubo
     sp.pprint(hubo_expr)
 
     print("\nHUBO EXPANDED")
     print("---- --------")
     print(hubo_expr.expand())
+
+    print('\n')
+    hubo_expr_str = str(hubo_expr.expand())
+    hubo_expr_str = hubo_expr_str.replace('+ ', '+')
+    hubo_expr_str = hubo_expr_str.replace('- ', '-')
+    hubo_expr_list = hubo_expr_str.split()
+    for mono in hubo_expr_list:
+        print(mono)
 
 
 if __name__ == "__main__":
