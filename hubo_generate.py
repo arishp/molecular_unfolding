@@ -42,8 +42,7 @@ x = []  # global variables for hubo variables
 #################
 
 
-def generate_hard_constraint():
-    A_const = sp.Symbol('A_const')
+def generate_hard_constraint(include_a=False):
     for i in range(n_bonds):
         x.append(sp.symbols(f'x{str(i)}(0:{n_angles})'))
     hard_constraint = 0
@@ -52,7 +51,9 @@ def generate_hard_constraint():
         for j in range(n_angles):
             summation += x[i][j]
         hard_constraint += (summation - 1) ** 2
-    hard_constraint *= A_const
+    if include_a:
+        a_const = sp.Symbol('A_const')
+        hard_constraint *= a_const
     return hard_constraint
 
 
@@ -132,7 +133,7 @@ def rotate_all_coordinates():
 
 
 def main():
-    hubo_expr = generate_hard_constraint()
+    hubo_expr = generate_hard_constraint(include_a=True)
     print("\nHARD CONSTRAINT")
     print("---- ----------")
     sp.pprint(hubo_expr)
@@ -156,6 +157,7 @@ def main():
     print('----- ----')
     hubo_expr += distance_hubo
     sp.pprint(hubo_expr)
+
     print("\nHUBO EXPANDED")
     print("---- --------")
     print(hubo_expr.expand())
