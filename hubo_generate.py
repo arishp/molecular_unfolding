@@ -1,6 +1,9 @@
 import sympy as sp
 from sympy.matrices import ones, eye
 from sympy import Point3D
+import dimod
+import neal
+from dwave.system import DWaveSampler, EmbeddingComposite
 
 #########################
 # INPUTS FOR AUTOMATION #
@@ -130,6 +133,34 @@ def rotate_all_coordinates():
             coords_dict[i] = rotate_coordinates(rot_mat, coords_dict[i])
 
 
+def extract_hubo_dict(hubo_expr):
+    hubo_expr_str = str(hubo_expr.expand())
+    hubo_expr_str = hubo_expr_str.replace('+ ', '+')
+    hubo_expr_str = hubo_expr_str.replace('- ', '-')
+    hubo_expr_list = hubo_expr_str.split()
+    hubo_dict = {}
+    for mono in hubo_expr_list:
+        mono_list = mono.split("*")
+        if len(mono_list) > 1:
+            dict_index = (mono_list[1],)
+            if len(mono_list) > 2:
+                if mono_list[2] != '':
+                    temp_index_list = []
+                    for item in mono_list[2:]:
+                        temp_index_list.append(item)
+                    if len(temp_index_list) > 0:
+                        dict_index += tuple(temp_index_list)
+                else:
+                    repeat_tuple = dict_index
+                    for i in range(int(mono_list[3])-1):
+                        dict_index += repeat_tuple
+
+            hubo_dict[dict_index] = float(mono_list[0])
+        else:
+            hubo_dict[()] = float(mono_list[0])
+    return hubo_dict
+
+
 def main():
     hubo_expr = generate_hard_constraint(include_a=False, a_value=20.0)
     print("\nHARD CONSTRAINT")
@@ -152,15 +183,22 @@ def main():
     print("---- --------")
     print(hubo_expr.expand())
 
-    print('\n')
-    hubo_expr_str = str(hubo_expr.expand())
-    hubo_expr_str = hubo_expr_str.replace('+ ', '+')
-    hubo_expr_str = hubo_expr_str.replace('- ', '-')
-    hubo_expr_list = hubo_expr_str.split()
-    for mono in hubo_expr_list:
-        print(mono)
+    print('\nHUBO DICTIONARY')
+    print('---- ----------')
+    hubo_dict = extract_hubo_dict(hubo_expr)
+    print(hubo_dict)
+
+    bqm = dimod.make_quadratic(hubo_dict, 12.0, dimod.BINARY)
+
+    sampler = neal.SimulatedAnnealingSampler()
+    sample_size=10
+    sampleset = sampler.sample(bqm, num_reads=sample_size)
+    print("\nSA RESULTS:\n",sampleset)
+
+    sampler = EmbeddingComposite(DWaveSampler())
+    sampleset = sampler.sample(bqm, num_reads=1000)
+    print("\nQA RESULTS:\n",sampleset)
 
 
 if __name__ == "__main__":
     main()
-

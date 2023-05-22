@@ -4,7 +4,7 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 
 
 hubo = {}
-### Hard constraint
+
 hubo[('x00', 'x00')] = 18.0
 hubo[('x00', 'x01')] = 40.0
 hubo[('x00', 'x02')] = 44.0
