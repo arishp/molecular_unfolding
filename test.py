@@ -27,8 +27,12 @@ bqm = dimod.make_quadratic(hubo, 12.0, dimod.BINARY)
 sampler = neal.SimulatedAnnealingSampler()
 sample_size=10
 sampleset = sampler.sample(bqm, num_reads=sample_size)
+sa_solution = sampleset.first.sample
 print("\nSA RESULTS:\n",sampleset)
+print("\nBEST SA RESULT:\n---- -- ------\n", sa_solution)
 
 sampler = EmbeddingComposite(DWaveSampler())
 sampleset = sampler.sample(bqm, num_reads=1000)
+qa_solution = sampleset.first.sample
 print("\nQA RESULTS:\n",sampleset)
+print("\nBEST QA RESULT:\n---- -- ------\n", qa_solution)

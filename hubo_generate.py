@@ -1,3 +1,4 @@
+import copy
 import sympy as sp
 from sympy.matrices import ones, eye
 from sympy import Point3D
@@ -10,35 +11,45 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 #########################
 
 # dictionary of coordinates involved
-coords_dict = {
-    1: [1.0, -0.5, 0.0],
-    2: [0.0, 0.0, 0.0],
-    3: [0.0, 1.0, 0.0],
-    4: [1.0, 1.5, 0.0]
+coords_original = {
+    0: [1.0, -0.5, 0.0],
+    1: [0.0, 0.0, 0.0],
+    2: [0.0, 1.0, 0.0],
+    3: [1.0, 1.5, 0.0],
+    4: [2.0, 1.0, 0.0]
 }
 
 # dictionary of bond numbers
 torsional_bonds = {
-    0: (2, 3)
+    0: (1, 2),
+    1: (2, 3)
 }
 
 # dictionary of bonds affecting coordinates
 coords_rotation_dict = {
+    0: [],
     1: [],
     2: [],
-    3: [],
-    4: [0]
+    3: [0],
+    4: [0, 1]
 }
 
 # pair of coordinates to find distances
 distance_pairs = [
+    (0, 3),
+    (0, 4),
+    (1, 3),
     (1, 4),
     (2, 4)]
+
+coords_dict = copy.deepcopy(coords_original)
+final_coords = copy.deepcopy(coords_original)
 
 n_bonds = len(torsional_bonds)  # no. of bonds
 n_angles = 4  # no. of discrete angles
 
 x = []  # global variables for hubo variables
+
 
 #################
 # END OF INPUTS #
@@ -47,7 +58,7 @@ x = []  # global variables for hubo variables
 
 def generate_hard_constraint(include_a=False, a_value=1.0):
     for i in range(n_bonds):
-        x.append(sp.symbols(f'x{str(i)}(0:{n_angles})'))
+        x.append(sp.symbols(f'x_{str(i)}_(0:{n_angles})'))
     hard_constraint = 0
     for i in range(n_bonds):
         summation = 0
@@ -60,6 +71,16 @@ def generate_hard_constraint(include_a=False, a_value=1.0):
     else:
         hard_constraint *= a_value
     return hard_constraint
+
+
+def generate_thetas():
+    angle_incr = 2 * sp.pi / n_angles
+    angle = 0.0
+    thetas = [angle]
+    for i in range(1, n_angles):
+        angle += angle_incr
+        thetas.append(angle)
+    return thetas
 
 
 def distance_squared(first_coords, second_coords):
@@ -83,12 +104,7 @@ def generate_rotation_matrix(first_coords, second_coords, bond_no):
     dz = z_ddash - z_dash
     l_sq = dx ** 2 + dy ** 2 + dz ** 2
     l = sp.sqrt(l_sq)
-    angle_incr = 2 * sp.pi / n_angles
-    angle = 0.0
-    thetas = [angle]
-    for i in range(1, n_angles):
-        angle += angle_incr
-        thetas.append(angle)
+    thetas = generate_thetas()
     c_theta = 0.0
     s_theta = 0.0
     for i in range(n_angles):
@@ -124,7 +140,7 @@ def rotate_coordinates(rotation_matrix, old_coords):
 
 def rotate_all_coordinates():
     for i in coords_dict.keys():
-        if len(coords_rotation_dict[i]):
+        if len(coords_rotation_dict[i]) > 0:
             rot_mat = eye(4, 4)
             for bond_no in coords_rotation_dict[i]:
                 temp_rot_mat = generate_rotation_matrix(coords_dict[torsional_bonds[bond_no][0]],
@@ -133,32 +149,55 @@ def rotate_all_coordinates():
             coords_dict[i] = rotate_coordinates(rot_mat, coords_dict[i])
 
 
-def extract_hubo_dict(hubo_expr):
-    hubo_expr_str = str(hubo_expr.expand())
-    hubo_expr_str = hubo_expr_str.replace('+ ', '+')
-    hubo_expr_str = hubo_expr_str.replace('- ', '-')
-    hubo_expr_list = hubo_expr_str.split()
-    hubo_dict = {}
-    for mono in hubo_expr_list:
-        mono_list = mono.split("*")
-        if len(mono_list) > 1:
-            dict_index = (mono_list[1],)
-            if len(mono_list) > 2:
-                if mono_list[2] != '':
-                    temp_index_list = []
-                    for item in mono_list[2:]:
-                        temp_index_list.append(item)
-                    if len(temp_index_list) > 0:
-                        dict_index += tuple(temp_index_list)
-                else:
-                    repeat_tuple = dict_index
-                    for i in range(int(mono_list[3])-1):
-                        dict_index += repeat_tuple
 
-            hubo_dict[dict_index] = float(mono_list[0])
-        else:
-            hubo_dict[()] = float(mono_list[0])
-    return hubo_dict
+
+
+def generate_final_rotation_matrix(first_coords, second_coords, bond_no, torsional_config):
+    x_dash, y_dash, z_dash = first_coords[0], first_coords[1], first_coords[2]
+    x_ddash, y_ddash, z_ddash = second_coords[0], second_coords[1], second_coords[2]
+    dx = x_ddash - x_dash
+    dy = y_ddash - y_dash
+    dz = z_ddash - z_dash
+    l_sq = dx ** 2 + dy ** 2 + dz ** 2
+    l = sp.sqrt(l_sq)
+    c_theta = sp.cos(torsional_config[bond_no])
+    s_theta = sp.sin(torsional_config[bond_no])
+    rotation_matrix = eye(4)
+    rotation_matrix[0, 0] = (dx ** 2 + (dy ** 2 + dz ** 2) * c_theta) / l_sq
+    rotation_matrix[0, 1] = (dx * dy * (1 - c_theta) - dz * l * s_theta) / l_sq
+    rotation_matrix[0, 2] = (dx * dz * (1 - c_theta) + dy * l * s_theta) / l_sq
+    rotation_matrix[0, 3] = ((x_dash * (dy ** 2 + dz ** 2) - dx * (y_dash * dy + z_dash * dz)) * (1 - c_theta) + (
+            y_dash * dz - z_dash * dy) * l * s_theta) / l_sq
+    rotation_matrix[1, 0] = (dx * dy * (1 - c_theta) + dz * l * s_theta) / l_sq
+    rotation_matrix[1, 1] = (dy ** 2 + (dx ** 2 + dz ** 2) * c_theta) / l_sq
+    rotation_matrix[1, 2] = (dy * dz * (1 - c_theta) - dx * l * s_theta) / l_sq
+    rotation_matrix[1, 3] = ((y_dash * (dx ** 2 + dz ** 2) - dy * (x_dash * dx + z_dash * dz)) * (1 - c_theta) + (
+            z_dash * dx - x_dash * dz) * l * s_theta) / l_sq
+    rotation_matrix[2, 0] = (dx * dz * (1 - c_theta) - dy * l * s_theta) / l_sq
+    rotation_matrix[2, 1] = (dy * dz * (1 - c_theta) + dx * l * s_theta) / l_sq
+    rotation_matrix[2, 2] = (dz ** 2 + (dx ** 2 + dy ** 2) * c_theta) / l_sq
+    rotation_matrix[2, 3] = ((z_dash * (dx ** 2 + dy ** 2) - dz * (x_dash * dx + y_dash * dy)) * (1 - c_theta) + (
+            x_dash * dy - y_dash * dx) * l * s_theta) / l_sq
+    return rotation_matrix
+
+
+def print_new_coords(solution):
+    torsional_config = {}
+    thetas = generate_thetas()
+    for key, value in solution.items():
+        if value == 1:
+            key_list = key.split('_')
+            torsional_config[int(key_list[1])] = thetas[int(key_list[2])]
+    for i in coords_dict.keys():
+        if len(coords_rotation_dict[i]) > 0:
+            rot_mat = eye(4, 4)
+            for bond_no in coords_rotation_dict[i]:
+                temp_rot_mat = generate_final_rotation_matrix(final_coords[torsional_bonds[bond_no][0]],
+                                                              final_coords[torsional_bonds[bond_no][1]], bond_no,
+                                                              torsional_config)
+                rot_mat = rot_mat * temp_rot_mat
+            final_coords[i] = rotate_coordinates(rot_mat, final_coords[i])
+    print(final_coords)
 
 
 def main():
@@ -182,22 +221,25 @@ def main():
     print("\nHUBO EXPANDED")
     print("---- --------")
     print(hubo_expr.expand())
+    hubo_expr_str = str(hubo_expr.expand())
 
-    print('\nHUBO DICTIONARY')
-    print('---- ----------')
-    hubo_dict = extract_hubo_dict(hubo_expr)
-    print(hubo_dict)
+    f = open("hubo_expr.txt", "a")
+    f.write(hubo_expr_str)
+    f.close()
 
-    bqm = dimod.make_quadratic(hubo_dict, 12.0, dimod.BINARY)
-
-    sampler = neal.SimulatedAnnealingSampler()
-    sample_size=10
-    sampleset = sampler.sample(bqm, num_reads=sample_size)
-    print("\nSA RESULTS:\n",sampleset)
-
-    sampler = EmbeddingComposite(DWaveSampler())
-    sampleset = sampler.sample(bqm, num_reads=1000)
-    print("\nQA RESULTS:\n",sampleset)
+    # read hubo_dict from a file
+    # bqm = dimod.make_quadratic(hubo_dict, 12.0, dimod.BINARY)
+    # sampler = neal.SimulatedAnnealingSampler()
+    # sample_size = 10
+    # sampleset = sampler.sample(bqm, num_reads=sample_size)
+    # sa_solution = sampleset.first.sample
+    # print("\nBEST SA RESULT:\n---- -- ------\n", sa_solution)
+    # print_new_coords(sa_solution)
+    # sampler = EmbeddingComposite(DWaveSampler())
+    # sampleset = sampler.sample(bqm, num_reads=1000)
+    # qa_solution = sampleset.first.sample
+    # print("\nQA RESULTS:\n",sampleset)
+    # print("\nBEST QA RESULT:\n---- -- ------\n", qa_solution)
 
 
 if __name__ == "__main__":
