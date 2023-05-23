@@ -70,7 +70,7 @@ def generate_hard_constraint(include_a=False, a_value=1.0):
         hard_constraint *= a_const
     else:
         hard_constraint *= a_value
-    return hard_constraint
+    return hard_constraint.expand()
 
 
 def generate_thetas():
@@ -84,16 +84,15 @@ def generate_thetas():
 
 
 def distance_squared(first_coords, second_coords):
-    p1 = Point3D(first_coords[0], first_coords[1], first_coords[2])
-    p2 = Point3D(second_coords[0], second_coords[1], second_coords[2])
-    return p2.distance(p1) ** 2
+    dis_sq = sp.expand((second_coords[0] - first_coords[0])**2 + (second_coords[1] - first_coords[1])**2 +(second_coords[2] - first_coords[2])**2)
+    return dis_sq
 
 
 def generate_distance_hubo():
     distance_sq = 0
     for pair in distance_pairs:
         distance_sq += distance_squared(coords_dict[pair[0]], coords_dict[pair[1]])
-    return distance_sq
+    return distance_sq.expand()
 
 
 def generate_rotation_matrix(first_coords, second_coords, bond_no):
@@ -102,31 +101,31 @@ def generate_rotation_matrix(first_coords, second_coords, bond_no):
     dx = x_ddash - x_dash
     dy = y_ddash - y_dash
     dz = z_ddash - z_dash
-    l_sq = dx ** 2 + dy ** 2 + dz ** 2
-    l = sp.sqrt(l_sq)
+    l_sq = sp.expand(dx ** 2 + dy ** 2 + dz ** 2)
+    l = sp.expand(sp.sqrt(l_sq))
     thetas = generate_thetas()
     c_theta = 0.0
     s_theta = 0.0
     for i in range(n_angles):
-        c_theta += (sp.cos(thetas[i]) * x[bond_no][i])
-        s_theta += (sp.sin(thetas[i]) * x[bond_no][i])
+        c_theta += sp.expand(sp.cos(thetas[i]) * x[bond_no][i])
+        s_theta += sp.expand(sp.sin(thetas[i]) * x[bond_no][i])
     rotation_matrix = eye(4)
-    rotation_matrix[0, 0] = (dx ** 2 + (dy ** 2 + dz ** 2) * c_theta) / l_sq
-    rotation_matrix[0, 1] = (dx * dy * (1 - c_theta) - dz * l * s_theta) / l_sq
-    rotation_matrix[0, 2] = (dx * dz * (1 - c_theta) + dy * l * s_theta) / l_sq
-    rotation_matrix[0, 3] = ((x_dash * (dy ** 2 + dz ** 2) - dx * (y_dash * dy + z_dash * dz)) * (1 - c_theta) + (
-            y_dash * dz - z_dash * dy) * l * s_theta) / l_sq
-    rotation_matrix[1, 0] = (dx * dy * (1 - c_theta) + dz * l * s_theta) / l_sq
-    rotation_matrix[1, 1] = (dy ** 2 + (dx ** 2 + dz ** 2) * c_theta) / l_sq
-    rotation_matrix[1, 2] = (dy * dz * (1 - c_theta) - dx * l * s_theta) / l_sq
-    rotation_matrix[1, 3] = ((y_dash * (dx ** 2 + dz ** 2) - dy * (x_dash * dx + z_dash * dz)) * (1 - c_theta) + (
-            z_dash * dx - x_dash * dz) * l * s_theta) / l_sq
-    rotation_matrix[2, 0] = (dx * dz * (1 - c_theta) - dy * l * s_theta) / l_sq
-    rotation_matrix[2, 1] = (dy * dz * (1 - c_theta) + dx * l * s_theta) / l_sq
-    rotation_matrix[2, 2] = (dz ** 2 + (dx ** 2 + dy ** 2) * c_theta) / l_sq
-    rotation_matrix[2, 3] = ((z_dash * (dx ** 2 + dy ** 2) - dz * (x_dash * dx + y_dash * dy)) * (1 - c_theta) + (
-            x_dash * dy - y_dash * dx) * l * s_theta) / l_sq
-    return rotation_matrix
+    rotation_matrix[0, 0] = sp.expand((dx ** 2 + (dy ** 2 + dz ** 2) * c_theta) / l_sq)
+    rotation_matrix[0, 1] = sp.expand((dx * dy * (1 - c_theta) - dz * l * s_theta) / l_sq)
+    rotation_matrix[0, 2] = sp.expand((dx * dz * (1 - c_theta) + dy * l * s_theta) / l_sq)
+    rotation_matrix[0, 3] = sp.expand(((x_dash * (dy ** 2 + dz ** 2) - dx * (y_dash * dy + z_dash * dz)) * (1 - c_theta) + (
+            y_dash * dz - z_dash * dy) * l * s_theta) / l_sq)
+    rotation_matrix[1, 0] = sp.expand((dx * dy * (1 - c_theta) + dz * l * s_theta) / l_sq)
+    rotation_matrix[1, 1] = sp.expand((dy ** 2 + (dx ** 2 + dz ** 2) * c_theta) / l_sq)
+    rotation_matrix[1, 2] = sp.expand((dy * dz * (1 - c_theta) - dx * l * s_theta) / l_sq)
+    rotation_matrix[1, 3] = sp.expand(((y_dash * (dx ** 2 + dz ** 2) - dy * (x_dash * dx + z_dash * dz)) * (1 - c_theta) + (
+            z_dash * dx - x_dash * dz) * l * s_theta) / l_sq)
+    rotation_matrix[2, 0] = sp.expand((dx * dz * (1 - c_theta) - dy * l * s_theta) / l_sq)
+    rotation_matrix[2, 1] = sp.expand((dy * dz * (1 - c_theta) + dx * l * s_theta) / l_sq)
+    rotation_matrix[2, 2] = sp.expand((dz ** 2 + (dx ** 2 + dy ** 2) * c_theta) / l_sq)
+    rotation_matrix[2, 3] = sp.expand(((z_dash * (dx ** 2 + dy ** 2) - dz * (x_dash * dx + y_dash * dy)) * (1 - c_theta) + (
+            x_dash * dy - y_dash * dx) * l * s_theta) / l_sq)
+    return sp.expand(rotation_matrix)
 
 
 def rotate_coordinates(rotation_matrix, old_coords):
@@ -134,7 +133,7 @@ def rotate_coordinates(rotation_matrix, old_coords):
     coord_vector[0, 0] = old_coords[0]
     coord_vector[1, 0] = old_coords[1]
     coord_vector[2, 0] = old_coords[2]
-    coord_rot_vector = rotation_matrix * coord_vector
+    coord_rot_vector = sp.expand(rotation_matrix * coord_vector)
     return [coord_rot_vector[0, 0], coord_rot_vector[1, 0], coord_rot_vector[2, 0]]
 
 
@@ -147,9 +146,6 @@ def rotate_all_coordinates():
                                                         coords_dict[torsional_bonds[bond_no][1]], bond_no)
                 rot_mat = rot_mat * temp_rot_mat
             coords_dict[i] = rotate_coordinates(rot_mat, coords_dict[i])
-
-
-
 
 
 def generate_final_rotation_matrix(first_coords, second_coords, bond_no, torsional_config):
@@ -218,14 +214,13 @@ def main():
     hubo_expr -= distance_hubo
     sp.pprint(hubo_expr)
 
-    print("\nHUBO EXPANDED")
-    print("---- --------")
-    print(hubo_expr.expand())
     hubo_expr_str = str(hubo_expr.expand())
 
-    f = open("hubo_expr.txt", "a")
+    print("\n\nFile hubo_expr.txt is getting ready...")
+    f = open("hubo_expr.txt", "w")
     f.write(hubo_expr_str)
     f.close()
+    print('\n\nFile hubo_expr.txt created!')
 
     # read hubo_dict from a file
     # bqm = dimod.make_quadratic(hubo_dict, 12.0, dimod.BINARY)
