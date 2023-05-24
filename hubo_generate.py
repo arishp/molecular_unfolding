@@ -138,14 +138,41 @@ def rotate_coordinates(rotation_matrix, old_coords):
 
 
 def rotate_all_coordinates():
-    for i in coords_dict.keys():
+    for i in coords_original.keys():
         if len(coords_rotation_dict[i]) > 0:
             rot_mat = eye(4, 4)
             for bond_no in coords_rotation_dict[i]:
-                temp_rot_mat = generate_rotation_matrix(coords_dict[torsional_bonds[bond_no][0]],
-                                                        coords_dict[torsional_bonds[bond_no][1]], bond_no)
+                temp_rot_mat = generate_rotation_matrix(coords_original[torsional_bonds[bond_no][0]],
+                                                        coords_original[torsional_bonds[bond_no][1]], bond_no)
                 rot_mat = rot_mat * temp_rot_mat
-            coords_dict[i] = rotate_coordinates(rot_mat, coords_dict[i])
+            coords_dict[i] = rotate_coordinates(rot_mat, coords_original[i])
+
+
+def extract_hubo_dict(hubo_expr_str):
+    hubo_expr_str = hubo_expr_str.replace('+ ', '+')
+    hubo_expr_str = hubo_expr_str.replace('- ', '-')
+    hubo_expr_list = hubo_expr_str.split()
+    hubo_dict = {}
+    for mono in hubo_expr_list:
+        mono_list = mono.split("*")
+        if len(mono_list) > 1:
+            dict_index = (mono_list[1],)
+            if len(mono_list) > 2:
+                if mono_list[2] != '':
+                    temp_index_list = []
+                    for item in mono_list[2:]:
+                        temp_index_list.append(item)
+                    if len(temp_index_list) > 0:
+                        dict_index += tuple(temp_index_list)
+                else:
+                    repeat_tuple = dict_index
+                    for i in range(int(mono_list[3])-1):
+                        dict_index += repeat_tuple
+
+            hubo_dict[dict_index] = float(mono_list[0])
+        else:
+            hubo_dict[()] = float(mono_list[0])
+    return hubo_dict
 
 
 def generate_final_rotation_matrix(first_coords, second_coords, bond_no, torsional_config):
@@ -188,8 +215,8 @@ def print_new_coords(solution):
         if len(coords_rotation_dict[i]) > 0:
             rot_mat = eye(4, 4)
             for bond_no in coords_rotation_dict[i]:
-                temp_rot_mat = generate_final_rotation_matrix(final_coords[torsional_bonds[bond_no][0]],
-                                                              final_coords[torsional_bonds[bond_no][1]], bond_no,
+                temp_rot_mat = generate_final_rotation_matrix(coords_original[torsional_bonds[bond_no][0]],
+                                                              coords_original[torsional_bonds[bond_no][1]], bond_no,
                                                               torsional_config)
                 rot_mat = rot_mat * temp_rot_mat
             final_coords[i] = rotate_coordinates(rot_mat, final_coords[i])
@@ -198,43 +225,47 @@ def print_new_coords(solution):
 
 def main():
     hubo_expr = generate_hard_constraint(include_a=False, a_value=20.0)
-    print("\nHARD CONSTRAINT")
-    print("---- ----------")
-    sp.pprint(hubo_expr)
+    # print("\nHARD CONSTRAINT")
+    # print("---- ----------")
+    # sp.pprint(hubo_expr)
+    #
+    # rotate_all_coordinates()
+    #
+    # print("\n\nOPTIMIZATION CONSTRAINT: ")
+    # print("------------ ----------")
+    # distance_hubo = generate_distance_hubo()
+    # sp.pprint(distance_hubo)
+    #
+    # print('\nFINAL HUBO: ')
+    # print('----- ----')
+    # hubo_expr -= distance_hubo
+    # sp.pprint(hubo_expr)
+    #
+    # hubo_expr_str = str(hubo_expr.expand())
+    #
+    # print("\n\nFile hubo_expr.txt is getting ready...")
+    # f = open("hubo_expr.txt", "w")
+    # f.write(hubo_expr_str)
+    # f.close()
+    # print('\n\nFile hubo_expr.txt created!')
 
-    rotate_all_coordinates()
-
-    print("\n\nOPTIMIZATION CONSTRAINT: ")
-    print("------------ ----------")
-    distance_hubo = generate_distance_hubo()
-    sp.pprint(distance_hubo)
-
-    print('\nFINAL HUBO: ')
-    print('----- ----')
-    hubo_expr -= distance_hubo
-    sp.pprint(hubo_expr)
-
-    hubo_expr_str = str(hubo_expr.expand())
-
-    print("\n\nFile hubo_expr.txt is getting ready...")
-    f = open("hubo_expr.txt", "w")
-    f.write(hubo_expr_str)
-    f.close()
-    print('\n\nFile hubo_expr.txt created!')
+    # print('\nHUBO DICTIONARY')
+    # print('---- ----------')
+    # hubo_expr_str = open("hubo_expr.txt", "r").read()
+    # hubo_dict = extract_hubo_dict(hubo_expr_str)
+    # print(hubo_dict)
 
     # read hubo_dict from a file
     # bqm = dimod.make_quadratic(hubo_dict, 12.0, dimod.BINARY)
     # sampler = neal.SimulatedAnnealingSampler()
     # sample_size = 10
     # sampleset = sampler.sample(bqm, num_reads=sample_size)
+    # print("\nSA RESULTS:\n-- -------\n", sampleset)
     # sa_solution = sampleset.first.sample
     # print("\nBEST SA RESULT:\n---- -- ------\n", sa_solution)
+    
+    # sa_solution = {'x_0_2': 1, 'x_1_0': 1}
     # print_new_coords(sa_solution)
-    # sampler = EmbeddingComposite(DWaveSampler())
-    # sampleset = sampler.sample(bqm, num_reads=1000)
-    # qa_solution = sampleset.first.sample
-    # print("\nQA RESULTS:\n",sampleset)
-    # print("\nBEST QA RESULT:\n---- -- ------\n", qa_solution)
 
 
 if __name__ == "__main__":
