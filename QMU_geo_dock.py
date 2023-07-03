@@ -63,7 +63,7 @@ thetas = generate_thetas()
 mol_folder = './Molecules/'
 mol_fname = '25A12Rot_37.mol2'
 mol_filepath = mol_folder + mol_fname
-mol = Chem.MolFromMol2File(mol_filepath)
+mol = Chem.rdmolfiles.MolFromMol2File(mol_filepath)
 n_atoms_mol = mol.GetNumAtoms()  # no. of atoms in the molecule (excluding hydrogen atoms)
 # print('No. of atoms: ', n_atoms_mol)
 conformers = mol.GetConformers()
@@ -117,7 +117,7 @@ while True:
                 # print('BEST VOLUME!!!')
                 best_volume = new_volume
                 best_soln = copy.deepcopy(temp_soln)
-    if old_best_volume == best_volume:
+    if best_volume - old_best_volume < 10:
         break
     else:
         old_best_volume = best_volume
